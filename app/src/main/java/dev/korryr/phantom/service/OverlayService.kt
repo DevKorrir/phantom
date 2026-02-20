@@ -27,7 +27,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import dev.korryr.phantom.PhantomApplication
-import dev.korryr.phantom.ai.GeminiRepository
+import dev.korryr.phantom.ai.GroqRepository
 import dev.korryr.phantom.capture.ScreenCaptureManager
 import dev.korryr.phantom.ui.overlay.AnswerOverlay
 import dev.korryr.phantom.viewmodel.OverlayViewModel
@@ -114,19 +114,17 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             screenDensity = metrics.densityDpi
         )
 
-        // Get GeminiRepository from Hilt Application component
+        // Get GroqRepository from Hilt Application component
         val app = application as PhantomApplication
-        val geminiRepo = (app as? dagger.hilt.android.internal.managers.ComponentSupplier)
-            ?.let { null }  // fallback
-            ?: GeminiRepository(
+        val groqRepo = GroqRepository(
                 okhttp3.OkHttpClient.Builder()
                     .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
                     .readTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
                     .build()
             )
-        Timber.d("GeminiRepository initialized")
+        Timber.d("GroqRepository initialized")
 
-        viewModel = OverlayViewModel(geminiRepo).also { vm ->
+        viewModel = OverlayViewModel(groqRepo).also { vm ->
             vm.setScreenCaptureManager(screenCaptureManager!!)
         }
 

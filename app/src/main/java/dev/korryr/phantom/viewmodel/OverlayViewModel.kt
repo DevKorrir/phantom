@@ -1,7 +1,7 @@
 package dev.korryr.phantom.viewmodel
 
 import android.graphics.Bitmap
-import dev.korryr.phantom.ai.GeminiRepository
+import dev.korryr.phantom.ai.GroqRepository
 import dev.korryr.phantom.capture.ScreenCaptureManager
 import dev.korryr.phantom.ocr.TextRecognitionManager
 import kotlinx.coroutines.CoroutineScope
@@ -21,7 +21,7 @@ data class OverlayState(
 )
 
 class OverlayViewModel(
-    private val geminiRepository: GeminiRepository,
+    private val groqRepository: GroqRepository,
     private val textRecognitionManager: TextRecognitionManager = TextRecognitionManager()
 ) {
     companion object {
@@ -70,12 +70,12 @@ class OverlayViewModel(
                             val remaining = COOLDOWN_MS - (now - lastApiCallTime)
                             Timber.v("Cooldown active (${remaining}ms remaining), skipping")
                         } else {
-                            Timber.i("New question detected, calling Gemini API")
+                            Timber.i("New question detected, calling Groq API")
                             lastQuestionText = text
                             lastApiCallTime = now
                             _state.value = _state.value.copy(isLoading = true)
 
-                            val answer = geminiRepository.getAnswer(text)
+                            val answer = groqRepository.getAnswer(text)
                             _state.value = OverlayState(
                                 answer = answer,
                                 isLoading = false
@@ -93,10 +93,6 @@ class OverlayViewModel(
         }
     }
 
-    /**
-     * Compares two strings by word overlap ratio.
-     * Returns true if they share >= SIMILARITY_THRESHOLD of words.
-     */
     private fun isSimilar(a: String, b: String): Boolean {
         if (a.isBlank() || b.isBlank()) return false
         val wordsA = a.lowercase().split("\\s+".toRegex()).toSet()

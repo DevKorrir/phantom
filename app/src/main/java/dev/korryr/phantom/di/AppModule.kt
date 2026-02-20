@@ -4,7 +4,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import dev.korryr.phantom.ai.GeminiRepository
+import dev.korryr.phantom.ai.GroqRepository
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
@@ -25,7 +25,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideGeminiRepository(client: OkHttpClient): GeminiRepository {
-        return GeminiRepository(client)
+    fun provideGroqRepository(client: OkHttpClient): GroqRepository {
+        return GroqRepository(client)
     }
 }
