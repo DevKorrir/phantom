@@ -17,7 +17,7 @@ class GroqRepository @Inject constructor(
 ) {
     companion object {
         private const val BASE_URL = "https://api.groq.com/openai/v1/chat/completions"
-        private const val MODEL = "llama-3.3-70b-versatile"
+        private const val MODEL = "llama-3.1-8b-instant" // llama-3.3-70b-versatile
     }
 
     suspend fun getAnswer(question: String): String = withContext(Dispatchers.IO) {
@@ -42,6 +42,7 @@ class GroqRepository @Inject constructor(
                             3. provide ONLY the text of the correct answer. 
                             4. If no options are found, provide a factual answer in max 5 words.
                             5. Be extremely concise.
+                            6. DO NOT use any emojis in your response.
                         """.trimIndent())
                     })
                     put(JSONObject().apply {

@@ -44,51 +44,40 @@ class OverlayViewModel(
         Timber.d("ScreenCaptureManager set")
     }
 
-    fun startCaptureLoop(scope: CoroutineScope) {
-        captureJob?.cancel()
-        Timber.i("Starting capture loop (interval=${CAPTURE_INTERVAL_MS}ms, cooldown=${COOLDOWN_MS}ms)")
-        captureJob = scope.launch(Dispatchers.IO) {
-            while (isActive) {
-                try {
-                    val bitmap: Bitmap? = screenCaptureManager?.captureFrame()
-                    if (bitmap != null) {
-                        Timber.v("Captured frame: ${bitmap.width}x${bitmap.height}")
-                        val text = textRecognitionManager.recognizeText(bitmap)
-                        bitmap.recycle()
+    fun scanOnce(scope: CoroutineScope) {
+        if (_state.value.isLoading) {
+            Timber.d("Scan already in progress, ignoring")
+            return
+        }
+        Timber.i("Manual scan triggered")
+        scope.launch(Dispatchers.IO) {
+            try {
+                _state.value = _state.value.copy(isLoading = true, answer = "Scanning...")
+                val bitmap: Bitmap? = screenCaptureManager?.captureFrame()
+                if (bitmap != null) {
+                    Timber.v("Captured frame: ${bitmap.width}x${bitmap.height}")
+                    val text = textRecognitionManager.recognizeText(bitmap)
+                    bitmap.recycle()
 
-                        Timber.d("OCR result (${text.length} chars): ${text.take(100)}...")
+                    Timber.d("OCR result (${text.length} chars): ${text.take(100)}...")
 
-                        val now = System.currentTimeMillis()
-                        val cooldownPassed = (now - lastApiCallTime) >= COOLDOWN_MS
-                        val textChanged = !isSimilar(text, lastQuestionText)
-
-                        if (text.length < MIN_QUESTION_LENGTH) {
-                            Timber.v("Text too short (${text.length} < $MIN_QUESTION_LENGTH), skipping")
-                        } else if (!textChanged) {
-                            Timber.v("Text similar to last question, skipping")
-                        } else if (!cooldownPassed) {
-                            val remaining = COOLDOWN_MS - (now - lastApiCallTime)
-                            Timber.v("Cooldown active (${remaining}ms remaining), skipping")
-                        } else {
-                            Timber.i("New question detected, calling Groq API")
-                            lastQuestionText = text
-                            lastApiCallTime = now
-                            _state.value = _state.value.copy(isLoading = true)
-
-                            val answer = groqRepository.getAnswer(text)
-                            _state.value = OverlayState(
-                                answer = answer,
-                                isLoading = false
-                            )
-                            Timber.i("Answer displayed: $answer")
-                        }
+                    if (text.length < MIN_QUESTION_LENGTH) {
+                        Timber.w("Text too short (${text.length} < $MIN_QUESTION_LENGTH)")
+                        _state.value = OverlayState(answer = "No question found", isLoading = false)
                     } else {
-                        Timber.v("No frame captured (null bitmap)")
+                        Timber.i("Calling Groq API")
+                        lastQuestionText = text
+                        val answer = groqRepository.getAnswer(text)
+                        _state.value = OverlayState(answer = answer, isLoading = false)
+                        Timber.i("Answer displayed: $answer")
                     }
-                } catch (e: Exception) {
-                    Timber.e(e, "Capture loop error")
+                } else {
+                    Timber.w("No frame captured (null bitmap)")
+                    _state.value = OverlayState(answer = "Capture failed", isLoading = false)
                 }
-                delay(CAPTURE_INTERVAL_MS)
+            } catch (e: Exception) {
+                Timber.e(e, "Scan error")
+                _state.value = OverlayState(answer = "Error: ${e.message}", isLoading = false)
             }
         }
     }

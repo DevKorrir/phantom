@@ -1,5 +1,6 @@
 package dev.korryr.phantom.service
 
+import android.R
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Notification
@@ -35,7 +36,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import okhttp3.OkHttpClient
 import timber.log.Timber
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
@@ -91,14 +94,14 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
         // Get screen metrics
         val metrics = DisplayMetrics()
-        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         @Suppress("DEPRECATION")
         wm.defaultDisplay.getRealMetrics(metrics)
         Timber.d("Screen metrics: ${metrics.widthPixels}x${metrics.heightPixels} @ ${metrics.densityDpi}dpi")
 
         // Create MediaProjection
         val projectionManager =
-            getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         val projection: MediaProjection? = projectionManager.getMediaProjection(resultCode, resultData)
         if (projection == null) {
             Timber.e("MediaProjection is null — stopping service")
@@ -117,9 +120,9 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         // Get GroqRepository from Hilt Application component
         val app = application as PhantomApplication
         val groqRepo = GroqRepository(
-                okhttp3.OkHttpClient.Builder()
-                    .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
-                    .readTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+                OkHttpClient.Builder()
+                    .connectTimeout(2, TimeUnit.SECONDS)
+                    .readTimeout(5, TimeUnit.SECONDS)
                     .build()
             )
         Timber.d("GroqRepository initialized")
@@ -134,8 +137,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -150,6 +152,10 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             setContent {
                 AnswerOverlay(
                     stateFlow = viewModel!!.state,
+                    onScanClick = {
+                        Timber.i("Scan button clicked")
+                        viewModel?.scanOnce(serviceScope)
+                    },
                     onStopClick = {
                         Timber.i("Stop button clicked — stopping service")
                         this@OverlayService.stopSelf()
@@ -186,9 +192,6 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         windowManager?.addView(overlayView, layoutParams)
         Timber.i("Overlay view added to WindowManager")
 
-        // Start capture loop
-        viewModel?.startCaptureLoop(serviceScope)
-
         return START_NOT_STICKY
     }
 
@@ -223,7 +226,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Phantom")
             .setContentText("Overlay active")
-            .setSmallIcon(android.R.drawable.ic_menu_view)
+            .setSmallIcon(R.drawable.ic_menu_view)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setSilent(true)
             .build()
