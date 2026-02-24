@@ -152,9 +152,8 @@ fun AnswerContent(state: OverlayState) {
         ) {
             // State dot indicator
             val dotColor = when {
-                state.isLoading -> PhantomCyan
                 answer.startsWith("Error:") -> PhantomRed
-                answer == "Watching..." -> PhantomMist
+                answer == "Watching..." || answer == "Tap to scan" -> PhantomMist
                 else -> PhantomGreen
             }
             Box(
@@ -164,22 +163,14 @@ fun AnswerContent(state: OverlayState) {
                     .background(dotColor)
             )
 
-            if (state.isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 2.dp,
-                    color = PhantomCyan
-                )
-            } else {
-                Text(
-                    text = answer,
-                    color = if (answer == "Watching...") PhantomMist else PhantomGhost,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 3,
-                    lineHeight = 17.sp
-                )
-            }
+            Text(
+                text = answer,
+                color = if (answer == "Watching..." || answer == "Tap to scan") PhantomMist else PhantomGhost,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 3,
+                lineHeight = 17.sp
+            )
         }
     }
 }

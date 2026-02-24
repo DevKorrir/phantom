@@ -25,6 +25,12 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        // Only include ARM ABIs — drops x86/x86_64 native libs (ML Kit .so files)
+        // This significantly reduces APK size. x86 is only needed for emulators.
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+        }
+
         buildConfigField(
             "String",
             "GEMINI_API_KEY",
@@ -39,7 +45,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

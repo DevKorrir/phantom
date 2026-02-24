@@ -48,6 +48,14 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         const val EXTRA_RESULT_DATA = "result_data"
         private const val CHANNEL_ID = "phantom_overlay"
         private const val NOTIFICATION_ID = 1
+
+        // Singleton — reuse thread-pool and connection-pool across service restarts
+        private val httpClient: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(2, TimeUnit.SECONDS)
+                .readTimeout(4, TimeUnit.SECONDS)   // Groq instant models respond in <2s
+                .build()
+        }
     }
 
     private lateinit var lifecycleRegistry: LifecycleRegistry
@@ -117,14 +125,8 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             screenDensity = metrics.densityDpi
         )
 
-        // Get GroqRepository from Hilt Application component
-        val app = application as PhantomApplication
-        val groqRepo = GroqRepository(
-                OkHttpClient.Builder()
-                    .connectTimeout(2, TimeUnit.SECONDS)
-                    .readTimeout(5, TimeUnit.SECONDS)
-                    .build()
-            )
+        // Reuse the singleton OkHttpClient — no thread-pool alloc on each start
+        val groqRepo = GroqRepository(httpClient)
         Timber.d("GroqRepository initialized")
 
         viewModel = OverlayViewModel(groqRepo).also { vm ->
@@ -137,7 +139,10 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            // FLAG_NOT_FOCUSABLE: overlay never steals input focus → keyboard opens instantly
+            // FLAG_NOT_TOUCH_MODAL: touches outside the overlay pass through to the app below
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START

@@ -17,18 +17,30 @@ class GroqRepository @Inject constructor(
 ) {
     companion object {
         private const val BASE_URL = "https://api.groq.com/openai/v1/chat/completions"
-        private const val MODEL = "llama-3.1-8b-instant" // llama-3.3-70b-versatile
+
+        // llama-3.3-70b-versatile: smarter model for better answer accuracy
+        private const val MODEL = "llama-3.3-70b-versatile"
+
+        // Keep OCR text short so the model processes it faster and with less noise
+        private const val MAX_OCR_CHARS = 600
     }
 
-    suspend fun getAnswer(question: String): String = withContext(Dispatchers.IO) {
+    suspend fun getAnswer(rawOcrText: String): String = withContext(Dispatchers.IO) {
         try {
             val apiKey = BuildConfig.GROQ_API_KEY
-            if (apiKey.isEmpty()) {
-                Timber.e("GROQ_API_KEY is empty")
-                return@withContext "Error: API Key missing"
-            }
+            if (apiKey.isEmpty()) return@withContext "Error: API Key missing"
 
-            Timber.d("Sending question to Groq (${question.length} chars): ${question.take(80)}...")
+            // ── Pre-clean OCR text ─────────────────────────────────────────────
+            // Remove blank lines, very-short fragments (single chars, lone numbers),
+            // and trim to MAX_OCR_CHARS to reduce prompt size and improve accuracy.
+            val cleanedText = rawOcrText
+                .lines()
+                .map { it.trim() }
+                .filter { it.length > 2 }           // drop single chars / noise
+                .joinToString("\n")
+                .take(MAX_OCR_CHARS)
+
+            Timber.d("Sending to Groq (${cleanedText.length} chars): ${cleanedText.take(120)}")
 
             val requestBody = JSONObject().apply {
                 put("model", MODEL)
@@ -36,56 +48,53 @@ class GroqRepository @Inject constructor(
                     put(JSONObject().apply {
                         put("role", "system")
                         put("content", """
-                            You are a Kahoot Assistant. The user will provide text extracted via OCR from a screen.
-                            1. Identify the question.
-                            2. If multiple-choice options (usually color-coded or listed) are present, select the correct one.
-                            3. provide ONLY the text of the correct answer. 
-                            4. If no options are found, provide a factual answer in max 5 words.
-                            5. Be extremely concise.
-                            6. DO NOT use any emojis in your response.
+                            You are answering a Kahoot quiz question.
+                            The input is OCR text from a Kahoot game screen.
+                            Kahoot layout: question text appears first, then 4 answer options (often preceded by shape names or color labels like Triangle, Diamond, Circle, Square).
+                            
+                            Rules:
+                            - Output ONLY the exact text of the correct answer option.
+                            - If 4 options are visible, pick the correct one.
+                            - If no options are visible, give a direct factual answer in 4 words max.
+                            - No punctuation, no explanation, no emojis, no labels.
+                            - Be decisive. Always output something.
                         """.trimIndent())
                     })
                     put(JSONObject().apply {
                         put("role", "user")
-                        put("content", "OCR Text: $question")
+                        put("content", cleanedText)
                     })
                 })
-                put("temperature", 0.0)
-                put("max_tokens", 50)
+                put("temperature", 0.0)    // deterministic — best for factual Q&A
+                put("max_tokens", 30)      // answers are short; 30 tokens is plenty
             }
 
             val request = Request.Builder()
                 .url(BASE_URL)
                 .addHeader("Authorization", "Bearer $apiKey")
                 .addHeader("Content-Type", "application/json")
-                .post(
-                    requestBody.toString()
-                        .toRequestBody("application/json".toMediaType())
-                )
+                .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
                 .build()
 
-            Timber.d("Making Groq API request...")
             val response = client.newCall(request).execute()
             val body = response.body?.string() ?: return@withContext "No response"
 
-            Timber.d("Groq API response code: ${response.code}")
-
             if (!response.isSuccessful) {
-                Timber.e("Groq API error ${response.code}: $body")
+                Timber.e("Groq error ${response.code}: $body")
                 return@withContext "API error: ${response.code}"
             }
 
-            val json = JSONObject(body)
-            val answer = json.getJSONArray("choices")
+            val answer = JSONObject(body)
+                .getJSONArray("choices")
                 .getJSONObject(0)
                 .getJSONObject("message")
                 .getString("content")
                 .trim()
 
-            Timber.d("Got Groq answer: $answer")
+            Timber.d("Groq answer: $answer")
             answer
         } catch (e: Exception) {
-            Timber.e(e, "Groq API call failed")
+            Timber.e(e, "Groq call failed")
             "Error: ${e.message?.take(30)}"
         }
     }
