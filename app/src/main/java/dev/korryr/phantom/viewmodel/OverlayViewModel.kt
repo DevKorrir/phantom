@@ -66,8 +66,9 @@ class OverlayViewModel(
         }
         Timber.i("Manual scan triggered")
         scanInProgress = true
+        _state.value = _state.value.copy(isLoading = true)
 
-        scope.launch {
+        captureJob = scope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     val bitmap = screenCaptureManager?.captureFrame()
@@ -104,8 +105,8 @@ class OverlayViewModel(
                 }
             }
 
-            // Swap answer in instantly — no loading state was ever shown
-            _state.value = OverlayState(answer = result)
+            // Swap answer in and remove loading state
+            _state.value = _state.value.copy(isLoading = false, answer = result)
             Timber.i("Answer displayed: $result")
             scanInProgress = false
         }

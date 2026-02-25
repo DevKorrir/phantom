@@ -122,6 +122,8 @@ class ScreenCaptureManager(
      * filterBitmap=false skips bilinear smoothing (irrelevant for OCR, saves ~5ms).
      */
     private fun decodeImageToBitmap(image: android.media.Image): Bitmap? {
+        var raw: Bitmap? = null
+        var cropped: Bitmap? = null
         return try {
             val plane       = image.planes[0]
             val buffer      = plane.buffer
@@ -131,25 +133,24 @@ class ScreenCaptureManager(
 
             // Full-row-width bitmap required by copyPixelsFromBuffer
             val rawWidth = screenWidth + rowPadding / pixelStride
-            val raw = Bitmap.createBitmap(rawWidth, screenHeight, Bitmap.Config.ARGB_8888)
+            raw = Bitmap.createBitmap(rawWidth, screenHeight, Bitmap.Config.ARGB_8888)
             raw.copyPixelsFromBuffer(buffer)
 
             val targetW = screenWidth  / 2
             val targetH = screenHeight / 2
 
-            val result = if (rowPadding == 0) {
+            if (rowPadding == 0) {
                 Bitmap.createScaledBitmap(raw, targetW, targetH, false)
             } else {
-                val cropped = Bitmap.createBitmap(raw, 0, 0, screenWidth, screenHeight)
-                val scaled  = Bitmap.createScaledBitmap(cropped, targetW, targetH, false)
-                cropped.recycle()
-                scaled
+                cropped = Bitmap.createBitmap(raw, 0, 0, screenWidth, screenHeight)
+                Bitmap.createScaledBitmap(cropped, targetW, targetH, false)
             }
-            raw.recycle()
-            result
         } catch (e: Exception) {
             Timber.e(e, "decodeImageToBitmap failed")
             null
+        } finally {
+            raw?.recycle()
+            cropped?.recycle()
         }
     }
 

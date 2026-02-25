@@ -18,10 +18,10 @@ class TextRecognitionManager {
             val inputImage = InputImage.fromBitmap(bitmap, 0)
             recognizer.process(inputImage)
                 .addOnSuccessListener { result ->
-                    cont.resume(result.text)
+                    if (cont.isActive) cont.resume(result.text)
                 }
                 .addOnFailureListener {
-                    cont.resume("")
+                    if (cont.isActive) cont.resume("")
                 }
         }
     }

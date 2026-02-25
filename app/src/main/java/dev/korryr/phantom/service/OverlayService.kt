@@ -17,6 +17,14 @@ import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.WindowManager
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.Lifecycle
@@ -155,43 +163,35 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             setViewTreeSavedStateRegistryOwner(this@OverlayService)
 
             setContent {
-                AnswerOverlay(
-                    stateFlow = viewModel!!.state,
-                    onScanClick = {
-                        Timber.i("Scan button clicked")
-                        viewModel?.scanOnce(serviceScope)
-                    },
-                    onStopClick = {
-                        Timber.i("Stop button clicked — stopping service")
-                        this@OverlayService.stopSelf()
-                    }
-                )
-            }
+                var offsetX by remember { mutableStateOf(layoutParams.x) }
+                var offsetY by remember { mutableStateOf(layoutParams.y) }
 
-            // Draggable touch handling
-            var initialX = 0
-            var initialY = 0
-            var initialTouchX = 0f
-            var initialTouchY = 0f
-
-            setOnTouchListener { _, event ->
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        initialX = layoutParams.x
-                        initialY = layoutParams.y
-                        initialTouchX = event.rawX
-                        initialTouchY = event.rawY
-                        true
+                Box(
+                    modifier = Modifier.pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            offsetX += dragAmount.x.toInt()
+                            offsetY += dragAmount.y.toInt()
+                            layoutParams.x = offsetX
+                            layoutParams.y = offsetY
+                            windowManager?.updateViewLayout(overlayView, layoutParams)
+                        }
                     }
-                    MotionEvent.ACTION_MOVE -> {
-                        layoutParams.x = initialX + (event.rawX - initialTouchX).toInt()
-                        layoutParams.y = initialY + (event.rawY - initialTouchY).toInt()
-                        windowManager?.updateViewLayout(this, layoutParams)
-                        true
-                    }
-                    else -> false
+                ) {
+                    AnswerOverlay(
+                        stateFlow = viewModel!!.state,
+                        onScanClick = {
+                            Timber.i("Scan button clicked")
+                            viewModel?.scanOnce(serviceScope)
+                        },
+                        onStopClick = {
+                            Timber.i("Stop button clicked — stopping service")
+                            this@OverlayService.stopSelf()
+                        }
+                    )
                 }
             }
+
         }
 
         windowManager?.addView(overlayView, layoutParams)

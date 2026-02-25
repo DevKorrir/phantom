@@ -138,33 +138,42 @@ fun StopConfirmCard(
 @Composable
 fun AnswerContent(state: OverlayState) {
     AnimatedContent(
-        targetState = state.answer,
+        targetState = state,
         transitionSpec = {
             fadeIn(tween(200)) + slideInVertically { it / 2 } togetherWith
                     fadeOut(tween(150)) + slideOutVertically { -it / 2 }
         },
         label = "answerAnim"
-    ) { answer ->
+    ) { animatedState ->
+        val answer = animatedState.answer
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(horizontal = 4.dp)
         ) {
-            // State dot indicator
-            val dotColor = when {
-                answer.startsWith("Error:") -> PhantomRed
-                answer == "Watching..." || answer == "Tap to scan" -> PhantomMist
-                else -> PhantomGreen
+            if (animatedState.isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(12.dp),
+                    color = PhantomCyan,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                // State dot indicator
+                val dotColor = when {
+                    answer.startsWith("Error:") -> PhantomRed
+                    answer == "Watching..." || answer == "Tap to scan" -> PhantomMist
+                    else -> PhantomGreen
+                }
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(dotColor)
+                )
             }
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(dotColor)
-            )
 
             Text(
-                text = answer,
+                text = if (animatedState.isLoading && answer == "Tap to scan") "Scanning..." else answer,
                 color = if (answer == "Watching..." || answer == "Tap to scan") PhantomMist else PhantomGhost,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,

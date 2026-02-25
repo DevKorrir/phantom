@@ -48,16 +48,15 @@ class GroqRepository @Inject constructor(
                     put(JSONObject().apply {
                         put("role", "system")
                         put("content", """
-                            You are answering a Kahoot quiz question.
-                            The input is OCR text from a Kahoot game screen.
-                            Kahoot layout: question text appears first, then 4 answer options (often preceded by shape names or color labels like Triangle, Diamond, Circle, Square).
+                            You are an expert trivia solver playing a multiple-choice game.
+                            I will give you OCR text containing a question and up to 4 possible answers. Ignore typos. Figure out the question, find the exact matching correct answer from the provided options, and output ONLY that exact option text.
                             
-                            Rules:
-                            - Output ONLY the exact text of the correct answer option.
-                            - If 4 options are visible, pick the correct one.
+                            CRITICAL RULES:
+                            - Output ONLY the EXACT text of the correct answer option from the provided text.
+                            - DO NOT output conversational filler like "The answer is" or "Correct option:".
                             - If no options are visible, give a direct factual answer in 4 words max.
-                            - No punctuation, no explanation, no emojis, no labels.
-                            - Be decisive. Always output something.
+                            - NO punctuation (unless part of the answer), NO explanation, NO emojis, NO shape names/colors.
+                            - ALWAYS answer, even if unsure.
                         """.trimIndent())
                     })
                     put(JSONObject().apply {
