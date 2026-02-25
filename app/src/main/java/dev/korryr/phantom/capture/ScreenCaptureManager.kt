@@ -67,6 +67,12 @@ class ScreenCaptureManager(
                 }
             }, handler)
 
+            mediaProjection.registerCallback(object : MediaProjection.Callback() {
+                override fun onStop() {
+                    Timber.d("MediaProjection stopped")
+                }
+            }, handler)
+
             virtualDisplay = mediaProjection.createVirtualDisplay(
                 VIRTUAL_DISPLAY_NAME,
                 screenWidth, screenHeight, screenDensity,
