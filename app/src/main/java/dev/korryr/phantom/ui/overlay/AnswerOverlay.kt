@@ -1,6 +1,5 @@
 package dev.korryr.phantom.ui.overlay
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -8,7 +7,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -137,50 +135,57 @@ fun StopConfirmCard(
 // ─── ANSWER CONTENT INSIDE CARD ───────────────────────────────────────────────
 @Composable
 fun AnswerContent(state: OverlayState) {
-    AnimatedContent(
-        targetState = state,
-        transitionSpec = {
-            fadeIn(tween(200)) + slideInVertically { it / 2 } togetherWith
-                    fadeOut(tween(150)) + slideOutVertically { -it / 2 }
-        },
-        label = "answerAnim"
-    ) { animatedState ->
-        val answer = animatedState.answer
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(horizontal = 4.dp)
-        ) {
-            if (animatedState.isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(12.dp),
-                    color = PhantomCyan,
-                    strokeWidth = 2.dp
-                )
-            } else {
-                // State dot indicator
-                val dotColor = when {
-                    answer.startsWith("Error:") -> PhantomRed
-                    answer == "Watching..." || answer == "Tap to scan" -> PhantomMist
-                    else -> PhantomGreen
-                }
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(dotColor)
-                )
-            }
+    // Use answer as key — streaming tokens arrive rapidly, so we skip AnimatedContent
+    // for streaming updates to avoid jank. AnimatedContent only triggers on non-loading transitions.
+    val answer = state.answer
+    val statusText = state.statusText
 
-            Text(
-                text = if (animatedState.isLoading && answer == "Tap to scan") "Scanning..." else answer,
-                color = if (answer == "Watching..." || answer == "Tap to scan") PhantomMist else PhantomGhost,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 3,
-                lineHeight = 17.sp
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(horizontal = 4.dp)
+    ) {
+        if (state.isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(12.dp),
+                color = PhantomCyan,
+                strokeWidth = 2.dp
+            )
+        } else {
+            // State dot indicator
+            val dotColor = when {
+                answer.startsWith("Error:") -> PhantomRed
+                answer == "Watching..." || answer == "Tap to scan" -> PhantomMist
+                else -> PhantomGreen
+            }
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(dotColor)
             )
         }
+
+        // Show phased status or streaming answer
+        val displayText = when {
+            // Loading with status (e.g. "Scanning...", "Thinking...")
+            state.isLoading && statusText.isNotEmpty() && answer == "Tap to scan" -> statusText
+            state.isLoading && statusText.isNotEmpty() && !answer.startsWith("Error") -> {
+                // If we have a status AND a streaming partial answer, show the answer
+                if (answer != "Tap to scan") answer else statusText
+            }
+            state.isLoading && answer == "Tap to scan" -> "Scanning..."
+            else -> answer
+        }
+
+        Text(
+            text = displayText,
+            color = if (answer == "Watching..." || answer == "Tap to scan") PhantomMist else PhantomGhost,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 3,
+            lineHeight = 17.sp
+        )
     }
 }
 

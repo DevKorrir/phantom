@@ -84,11 +84,11 @@ class ScreenCaptureManager(
     }
 
     /**
-     * Instant grab of the most recently decoded bitmap — NO waiting.
-     * Returns a COPY so the caller can safely .recycle() it without destroying the cache.
+     * Instant grab of the most recently decoded bitmap — NO waiting, NO copy.
+     * ML Kit OCR only reads the bitmap (never modifies it), so a direct reference is safe.
      * Returns null only on the very first scan before any frame has arrived.
      */
-    fun captureFrame(): Bitmap? = latestBitmap?.copy(Bitmap.Config.ARGB_8888, false)
+    fun captureFrame(): Bitmap? = latestBitmap
 
     /**
      * Waits for the NEXT frame from the VirtualDisplay and returns it as a Bitmap.

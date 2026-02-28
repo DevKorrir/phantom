@@ -7,7 +7,6 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.media.projection.MediaProjection
@@ -15,7 +14,6 @@ import android.media.projection.MediaProjectionManager
 import android.os.IBinder
 import android.util.DisplayMetrics
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
@@ -46,7 +44,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import okhttp3.OkHttpClient
 import timber.log.Timber
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
@@ -56,14 +53,6 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         const val EXTRA_RESULT_DATA = "result_data"
         private const val CHANNEL_ID = "phantom_overlay"
         private const val NOTIFICATION_ID = 1
-
-        // Singleton — reuse thread-pool and connection-pool across service restarts
-        private val httpClient: OkHttpClient by lazy {
-            OkHttpClient.Builder()
-                .connectTimeout(2, TimeUnit.SECONDS)
-                .readTimeout(4, TimeUnit.SECONDS)   // Groq instant models respond in <2s
-                .build()
-        }
     }
 
     private lateinit var lifecycleRegistry: LifecycleRegistry
@@ -133,12 +122,15 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             screenDensity = metrics.densityDpi
         )
 
-        // Reuse the singleton OkHttpClient — no thread-pool alloc on each start
+        // Use Hilt's singleton OkHttpClient via the Application's DI container
+        val app = application as PhantomApplication
+        val httpClient = dagger.hilt.EntryPoints.get(app, OverlayServiceEntryPoint::class.java).okHttpClient()
         val groqRepo = GroqRepository(httpClient)
-        Timber.d("GroqRepository initialized")
+        Timber.d("GroqRepository initialized with Hilt OkHttpClient")
 
         viewModel = OverlayViewModel(groqRepo).also { vm ->
             vm.setScreenCaptureManager(screenCaptureManager!!)
+            vm.startPreFetch(serviceScope)   // Start background OCR immediately
         }
 
         // Set up overlay
@@ -236,4 +228,13 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             .setSilent(true)
             .build()
     }
+}
+
+/**
+ * Hilt EntryPoint to access the singleton OkHttpClient from a non-injected Service.
+ */
+@dagger.hilt.EntryPoint
+@dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
+interface OverlayServiceEntryPoint {
+    fun okHttpClient(): OkHttpClient
 }
