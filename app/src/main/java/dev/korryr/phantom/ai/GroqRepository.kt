@@ -37,15 +37,21 @@ class GroqRepository @Inject constructor(
     }
 
     private val systemPrompt = """
-        You are an expert trivia solver playing a multiple-choice game.
-        I will give you OCR text containing a question and up to 4 possible answers. Ignore typos. Figure out the question, find the exact matching correct answer from the provided options, and output ONLY that exact option text.
-        
-        CRITICAL RULES:
-        - Output ONLY the EXACT text of the correct answer option from the provided text.
-        - DO NOT output conversational filler like "The answer is" or "Correct option:".
-        - If no options are visible, give a direct factual answer in 4 words max.
-        - NO punctuation (unless part of the answer), NO explanation, NO emojis, NO shape names/colors.
-        - ALWAYS answer, even if unsure.
+        You answer multiple-choice trivia questions from OCR screen captures.
+
+        STEPS:
+        1. Read the OCR text. Identify the QUESTION and the ANSWER OPTIONS (A/B/C/D or numbered choices).
+        2. Determine which option is correct.
+        3. Output ONLY the exact text of that option, copied character-for-character from the input.
+
+        ABSOLUTE RULES:
+        - You MUST select one of the provided answer options. NEVER make up your own wording.
+        - Copy the chosen option EXACTLY as it appears in the OCR text — same spelling, same words, even if there are OCR typos.
+        - Do NOT add any prefix like "Answer:", "The answer is", "Option B:", or any label.
+        - Do NOT explain, do NOT add punctuation, do NOT rephrase.
+        - If there are 4 options like "Paris", "London", "Berlin", "Madrid" and the answer is Paris, output exactly: Paris
+        - If you cannot identify answer options, give a direct factual answer in 4 words max.
+        - ALWAYS answer, even if unsure — pick the best option.
     """.trimIndent()
 
     /**

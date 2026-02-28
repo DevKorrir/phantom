@@ -61,8 +61,9 @@ class ScreenCaptureManager(
                     pendingListener = null
                     listener(bitmap)
                 } else {
-                    // No active scan — update the cached latest bitmap
-                    latestBitmap?.recycle()
+                    // No active scan — update the cached latest bitmap.
+                    // Do NOT recycle the old bitmap: OCR or pre-fetch may still be reading it.
+                    // The GC will collect it once all readers are done.
                     latestBitmap = bitmap
                 }
             }, handler)
