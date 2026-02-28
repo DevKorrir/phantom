@@ -33,8 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -44,7 +44,7 @@ import dev.korryr.phantom.ui.theme.*
 import dev.korryr.phantom.viewmodel.OverlayState
 import kotlinx.coroutines.flow.StateFlow
 
-// ─── STOP BUTTON (tiny X badge) ───────────────────────────────────────────────
+// ─── STOP BUTTON (tiny near-invisible dot) ────────────────────────────────────
 @Composable
 fun StopBadge(onClick: () -> Unit) {
     var pressed by remember { mutableStateOf(false) }
@@ -56,10 +56,9 @@ fun StopBadge(onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .scale(scale)
-            .size(20.dp)
+            .size(15.dp)
             .clip(CircleShape)
-            .background(PhantomRed.copy(alpha = 0.85f))
-            .border(1.dp, PhantomRed, CircleShape)
+            .background(PhantomRed.copy(alpha = 0.35f))
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = { pressed = true; tryAwaitRelease(); pressed = false },
@@ -68,7 +67,7 @@ fun StopBadge(onClick: () -> Unit) {
             },
         contentAlignment = Alignment.Center
     ) {
-        Text("X", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold)
+        Text("×", color = Color.White.copy(alpha = 0.6f), fontSize = 8.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -80,52 +79,41 @@ fun StopConfirmCard(
 ) {
     Box(
         modifier = Modifier
-            .widthIn(min = 160.dp, max = 200.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(OverlaySurface)
-            .border(1.dp, OverlayBorder, RoundedCornerShape(14.dp))
-            .padding(16.dp)
+            .widthIn(min = 140.dp, max = 180.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.Black.copy(alpha = 0.7f))
+            .padding(12.dp)
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("👻", fontSize = 24.sp)
-            Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Stop Phantom?",
-                color = PhantomGhost,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp
+                text = "Stop?",
+                color = Color.White.copy(alpha = 0.7f),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 11.sp
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "Overlay will be removed",
-                color = PhantomMist,
-                fontSize = 10.sp,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Cancel
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(PhantomMist.copy(alpha = 0.15f))
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color.White.copy(alpha = 0.08f))
                         .pointerInput(Unit) { detectTapGestures(onTap = { onCancel() }) }
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                        .padding(horizontal = 12.dp, vertical = 5.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Cancel", color = PhantomMist, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text("No", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
                 }
                 // Stop
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(PhantomRed.copy(alpha = 0.2f))
-                        .border(1.dp, PhantomRed.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(PhantomRed.copy(alpha = 0.15f))
                         .pointerInput(Unit) { detectTapGestures(onTap = { onConfirm() }) }
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                        .padding(horizontal = 12.dp, vertical = 5.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Stop", color = PhantomRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Yes", color = PhantomRed.copy(alpha = 0.7f), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -135,32 +123,31 @@ fun StopConfirmCard(
 // ─── ANSWER CONTENT INSIDE CARD ───────────────────────────────────────────────
 @Composable
 fun AnswerContent(state: OverlayState) {
-    // Use answer as key — streaming tokens arrive rapidly, so we skip AnimatedContent
-    // for streaming updates to avoid jank. AnimatedContent only triggers on non-loading transitions.
     val answer = state.answer
     val statusText = state.statusText
+    val isIdle = answer == "Tap to scan" && !state.isLoading
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(horizontal = 4.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.padding(horizontal = 2.dp)
     ) {
         if (state.isLoading) {
             CircularProgressIndicator(
-                modifier = Modifier.size(12.dp),
-                color = PhantomCyan,
-                strokeWidth = 2.dp
+                modifier = Modifier.size(8.dp),
+                color = Color.White.copy(alpha = 0.4f),
+                strokeWidth = 1.5.dp
             )
         } else {
-            // State dot indicator
+            // Tiny dot indicator — almost invisible
             val dotColor = when {
-                answer.startsWith("Error:") -> PhantomRed
-                answer == "Watching..." || answer == "Tap to scan" -> PhantomMist
-                else -> PhantomGreen
+                answer.startsWith("Error:") -> PhantomRed.copy(alpha = 0.5f)
+                isIdle -> Color.White.copy(alpha = 0.15f)
+                else -> PhantomGreen.copy(alpha = 0.5f)
             }
             Box(
                 modifier = Modifier
-                    .size(6.dp)
+                    .size(4.dp)
                     .clip(CircleShape)
                     .background(dotColor)
             )
@@ -168,28 +155,35 @@ fun AnswerContent(state: OverlayState) {
 
         // Show phased status or streaming answer
         val displayText = when {
-            // Loading with status (e.g. "Scanning...", "Thinking...")
             state.isLoading && statusText.isNotEmpty() && answer == "Tap to scan" -> statusText
             state.isLoading && statusText.isNotEmpty() && !answer.startsWith("Error") -> {
-                // If we have a status AND a streaming partial answer, show the answer
                 if (answer != "Tap to scan") answer else statusText
             }
-            state.isLoading && answer == "Tap to scan" -> "Scanning..."
+            state.isLoading && answer == "Tap to scan" -> "..."
+            isIdle -> "·"   // Single dot when idle — maximum stealth
             else -> answer
+        }
+
+        // Dim text when idle, slightly brighter for answers
+        val textAlpha = when {
+            isIdle -> 0.25f
+            state.isLoading -> 0.45f
+            answer.startsWith("Error") -> 0.5f
+            else -> 0.75f   // Answer text — visible but not screaming
         }
 
         Text(
             text = displayText,
-            color = if (answer == "Watching..." || answer == "Tap to scan") PhantomMist else PhantomGhost,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
+            color = Color.White.copy(alpha = textAlpha),
+            fontSize = if (isIdle) 10.sp else 11.sp,
+            fontWeight = FontWeight.Medium,
             maxLines = 3,
-            lineHeight = 17.sp
+            lineHeight = 14.sp
         )
     }
 }
 
-// ─── MAIN OVERLAY COMPOSABLE ──────────────────────────────────────────────────
+// MAIN OVERLAY COMPOSABLE
 @Composable
 fun AnswerOverlay(
     stateFlow: StateFlow<OverlayState>,
@@ -198,11 +192,26 @@ fun AnswerOverlay(
 ) {
     val state by stateFlow.collectAsState()
     var showExitDialog by remember { mutableStateOf(false) }
+    val isIdle = state.answer == "Tap to scan" && !state.isLoading
+    val hasAnswer = !isIdle && !state.isLoading
+
+    // Card fades to near-invisible when idle, slightly more visible with an answer
+    val cardAlpha by animateFloatAsState(
+        targetValue = when {
+            showExitDialog -> 0f      // Hide card when dialog is showing
+            isIdle -> 0.32f           // Almost invisible when idle
+            state.isLoading -> 0.35f  // Slightly visible during scan
+            hasAnswer -> 0.35f        // More visible with answer — but still subtle
+            else -> 0.25f
+        },
+        animationSpec = tween(300),
+        label = "cardAlpha"
+    )
 
     AnimatedVisibility(
         visible = showExitDialog,
-        enter = fadeIn(tween(150)) + slideInVertically { -it / 3 },
-        exit = fadeOut(tween(150)) + slideOutVertically { -it / 3 }
+        enter = fadeIn(tween(120)),
+        exit = fadeOut(tween(120))
     ) {
         StopConfirmCard(
             onCancel = { showExitDialog = false },
@@ -212,39 +221,38 @@ fun AnswerOverlay(
 
     AnimatedVisibility(
         visible = !showExitDialog,
-        enter = fadeIn(tween(150)),
-        exit = fadeOut(tween(150))
+        enter = fadeIn(tween(120)),
+        exit = fadeOut(tween(120))
     ) {
-        // ── Answer card — tap anywhere to scan ─────────────────────────────
+        // ── Stealth answer card
         Box(
             modifier = Modifier
-                .widthIn(min = 140.dp, max = 220.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(OverlayBackground.copy(alpha = 0.5f))
-                .border(
-                    width = 1.dp,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            PhantomCyan.copy(alpha = 0.4f),
-                            OverlayBorder
-                        )
-                    ),
-                    shape = RoundedCornerShape(14.dp)
-                )
+                .graphicsLayer { alpha = cardAlpha }
+                .widthIn(min = if (isIdle) 32.dp else 100.dp, max = if (isIdle) 60.dp else 200.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.Black.copy(alpha = 0.6f))
                 .pointerInput(Unit) {
                     detectTapGestures(onTap = { if (!state.isLoading) onScanClick() })
                 }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(
+                    horizontal = if (isIdle) 6.dp else 10.dp,
+                    vertical = if (isIdle) 4.dp else 8.dp
+                ),
             contentAlignment = Alignment.TopStart
         ) {
-            // Answer text (leave right padding for the X badge)
-            Box(modifier = Modifier.padding(end = 18.dp)) {
+            // Answer text
+            Box(
+                modifier = Modifier
+                    .padding(end = if (isIdle) 0.dp else 14.dp)
+            ) {
                 AnswerContent(state = state)
             }
 
-            // X stop badge — pinned top-right inside card
-            Box(modifier = Modifier.align(Alignment.TopEnd)) {
-                StopBadge(onClick = { showExitDialog = true })
+            // X stop badge — only visible on long-press area, not idle
+            if (!isIdle) {
+                Box(modifier = Modifier.align(Alignment.TopEnd)) {
+                    StopBadge(onClick = { showExitDialog = true })
+                }
             }
         }
     }
